@@ -5,7 +5,7 @@ source("https://raw.githubusercontent.com/dwolffram/covid19-ensembles/master/sco
 source("https://raw.githubusercontent.com/dwolffram/covid19-ensembles/master/ensemble_methods.R")
 source("https://raw.githubusercontent.com/dwolffram/covid19-ensembles/master/ensemble_functions.R")
 
-forecast_date <- '2021-05-03'
+forecast_date <- '2021-05-10'
 
 df_train <- read_csv(paste0("data/df_train_", forecast_date, ".csv"), col_types = cols(
               forecast_date = col_date(format = ""),
@@ -16,7 +16,7 @@ df_train <- read_csv(paste0("data/df_train_", forecast_date, ".csv"), col_types 
               quantile = col_double(),
               value = col_double()
               )) %>%
-  filter(location != 'US') %>%
+  # filter(location != 'US') %>%
   as.data.frame()
 
 
@@ -29,7 +29,7 @@ df_test <- read_csv(paste0("data/df_test_", forecast_date, ".csv"), col_types = 
               quantile = col_double(),
               value = col_double()
             )) %>%
-  filter(location != 'US') %>%
+  filter(location == 'US') %>%
   as.data.frame()
 
 df_ensemble <- data.frame()
@@ -61,8 +61,8 @@ for (t in unique(df_test$target)){
 df_ensemble <- df_ensemble %>%
   select(-truth)
 
-file_name <- paste0("data/ensemble_data/df_pred_", forecast_date, ".csv")
-file_name <- paste0("data/ensemble_data/df_pred_US_", forecast_date, ".csv")
+file_name <- paste0("data/df_pred_", forecast_date, ".csv")
+file_name <- paste0("data/df_pred_US_", forecast_date, ".csv")
 
 write.csv(df_ensemble, file_name, row.names=FALSE)
 
@@ -82,8 +82,8 @@ df_wide <- reshape(train, direction = "wide", timevar = "quantile",
 Sys.setlocale("LC_TIME", "C")
 Sys.setlocale("LC_ALL", "C")
 
-df <- read_csv("data/ensemble_data/df_pred_2021-05-03.csv")
-df2 <- read_csv("data/ensemble_data/df_pred_US_2021-05-03.csv")
+df <- read_csv(paste0("data/df_pred_", forecast_date, ".csv"))
+df2 <- read_csv(paste0("data/df_pred_US_", forecast_date, ".csv"))
 df <- bind_rows(df, df2)
 
 df <- read_csv("data/ensemble_data/submissions/2021-04-26-KITmetricslab-select_ensemble.csv")
@@ -166,7 +166,7 @@ df$value <- pmax(df$value, 0)
 df <- df %>%
   select(forecast_date, target, target_end_date, location, type, quantile, value)
 
-write.csv(df, paste0("data/ensemble_data/submissions/", forecast_date, "-KITmetricslab-select_ensemble.csv"), row.names=FALSE)
+write.csv(df, paste0("submissions/", forecast_date, "-KITmetricslab-select_ensemble.csv"), row.names=FALSE)
 
 
 
