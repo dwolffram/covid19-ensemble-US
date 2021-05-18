@@ -5,7 +5,7 @@ source("https://raw.githubusercontent.com/dwolffram/covid19-ensembles/master/sco
 source("https://raw.githubusercontent.com/dwolffram/covid19-ensembles/master/ensemble_methods.R")
 source("https://raw.githubusercontent.com/dwolffram/covid19-ensembles/master/ensemble_functions.R")
 
-forecast_date <- '2021-05-10'
+forecast_date <- '2021-05-17'
 
 df_train <- read_csv(paste0("data/df_train_", forecast_date, ".csv"), col_types = cols(
               forecast_date = col_date(format = ""),
@@ -16,7 +16,7 @@ df_train <- read_csv(paste0("data/df_train_", forecast_date, ".csv"), col_types 
               quantile = col_double(),
               value = col_double()
               )) %>%
-  # filter(location != 'US') %>%
+  #filter(location != 'US') %>%
   as.data.frame()
 
 
@@ -35,6 +35,7 @@ df_test <- read_csv(paste0("data/df_test_", forecast_date, ".csv"), col_types = 
 df_ensemble <- data.frame()
 
 unique(df_test$forecast_date)
+
 
 # for (t in c("1 wk ahead cum death", "1 wk ahead inc death", "2 wk ahead cum death", "2 wk ahead inc death", "3 wk ahead cum death",
 #             "3 wk ahead inc death", "4 wk ahead cum death", "4 wk ahead inc death")){
@@ -88,6 +89,8 @@ df <- bind_rows(df, df2)
 
 df <- read_csv("data/ensemble_data/submissions/2021-04-26-KITmetricslab-select_ensemble.csv")
 df <- read_csv("data/ensemble_data/submissions/2021-05-03-KITmetricslab-select_ensemble.csv")
+df <- read_csv("data/ensemble_data/submissions/2021-05-10-KITmetricslab-select_ensemble.csv")
+df <- read_csv("data/ensemble_data/submissions/2021-05-17-KITmetricslab-select_ensemble.csv")
 
 
 plot_submission <- function(df, target="inc death", start_date="2020-11-01"){
