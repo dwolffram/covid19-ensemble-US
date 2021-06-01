@@ -5,7 +5,7 @@ source("https://raw.githubusercontent.com/dwolffram/covid19-ensembles/master/sco
 source("https://raw.githubusercontent.com/dwolffram/covid19-ensembles/master/ensemble_methods.R")
 source("https://raw.githubusercontent.com/dwolffram/covid19-ensembles/master/ensemble_functions.R")
 
-forecast_date <- '2021-05-24'
+forecast_date <- '2021-05-31'
 
 df_train <- read_csv(paste0("data/df_train_", forecast_date, ".csv"), col_types = cols(
               forecast_date = col_date(format = ""),
@@ -16,7 +16,7 @@ df_train <- read_csv(paste0("data/df_train_", forecast_date, ".csv"), col_types 
               quantile = col_double(),
               value = col_double()
               )) %>%
-  # filter(location != 'US') %>%
+  #filter(location != 'US') %>%
   as.data.frame()
 
 
@@ -92,6 +92,7 @@ df <- read_csv("data/ensemble_data/submissions/2021-05-03-KITmetricslab-select_e
 df <- read_csv("data/ensemble_data/submissions/2021-05-10-KITmetricslab-select_ensemble.csv")
 df <- read_csv("data/ensemble_data/submissions/2021-05-17-KITmetricslab-select_ensemble.csv")
 df <- read_csv("data/ensemble_data/submissions/2021-05-24-KITmetricslab-select_ensemble.csv")
+df <- read_csv("data/ensemble_data/submissions/2021-05-31-KITmetricslab-select_ensemble.csv")
 
 
 plot_submission <- function(df, target="inc death", start_date="2020-11-01"){
