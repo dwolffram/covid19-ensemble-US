@@ -16,7 +16,8 @@ df <- load_forecasts(targets = c(paste(1:4, "wk ahead inc case"),
                      start_date="2021-04-24")
 
 
-write.csv(df, "scores/df.csv", row.names=FALSE)
+
+write.csv(df, "evaluation/2021-06-19_df.csv", row.names=FALSE)
 
 
 # get_all_models()
@@ -86,35 +87,10 @@ temp <- temp %>%
   select(target_end_date, everything())
 
 temp <- temp %>%
-  filter(target_end_date <= "2021-06-12")
+  filter(target_end_date <= "2021-06-19")
 
 temp <- temp %>% 
   filter(!model %in% c("CU-scenario_high", "CU-scenario_mid", "CU-scenario_low", "CU-nochange"))
-
-write.csv(temp, "evaluation/2021-06-12_df_processed.csv", row.names=FALSE)
-
-
-
-target_dict = list("inc case" = "Incident Cases",
-                   "inc death" = "Incident Deaths",
-                   "cum death" = "Cumulative Deaths")
-
-temp$merge_target <- str_sub(temp$target, start=12)
-targets <- unique(temp$merge_target)
-
-truth_df <- data.frame()
-
-for (target in targets){
-  truth <- load_truth(target_dict[[target]]) %>%
-    rename(truth = value) %>%
-    mutate(merge_target = target)
-  
-  truth_df <- bind_rows(truth_df, truth)
-}
-
-temp <- temp %>%
-  left_join(truth_df, by=c("merge_target"="merge_target", "target_end_date"="date", "location"="location"))
-
 
 
 add_truth <- function(df){
@@ -143,15 +119,26 @@ add_truth <- function(df){
 }
 
 temp <- add_truth(temp)
-temp <- temp %>% 
-  select(-merge_target)
+
+write.csv(temp, "evaluation/2021-06-19_df_processed.csv", row.names=FALSE)
 
 
+df_case <- temp %>%
+  filter(str_detect(target, "case"))
 
-scores <- score_forecasts(temp)
+df_death <- temp %>%
+  filter(str_detect(target, "death"))
+
+# scores <- score_forecasts(temp)
+
+scores_case <- score_forecasts(df_case)
+scores_death <- score_forecasts(df_death)
+scores <- bind_rows(scores_case, scores_death)
 
 
-write.csv(scores, "scores/scores_cases_2021-06-12.csv", row.names=FALSE)
+write.csv(scores_case, "scores/2021-06-19_scores_cases.csv", row.names=FALSE)
+write.csv(scores_death, "scores/2021-06-19_scores_deaths.csv", row.names=FALSE)
+write.csv(scores, "scores/2021-06-19_scores.csv", row.names=FALSE)
 
 
 mean_wis <- scores %>%
@@ -191,7 +178,7 @@ ggplot(p, aes(x=location_name, y=mean_WIS, group=model)) +
   geom_line(data = subset(p,  model == "LNQ-ens1"), size=0.8, color="blue")
 
 
-scores <- load_scores("scores/scores_cases_2021-06-12.csv", long_format=TRUE) %>%
+scores <- load_scores("scores/2021-06-19_scores_cases.csv", long_format=TRUE) %>%
   filter(!model %in% c("CU-scenario_high", "CU-scenario_mid", "CU-scenario_low", "CU-nochange")) %>%
   filter(location != "US")
 
@@ -210,8 +197,6 @@ ggplot(subset(scores, score %in% c("wgt_pen_l", "wgt_iw", "wgt_pen_u")),
   scale_x_discrete(labels = function(l) parse(text=l)) + 
   labs(x = NULL,
        y = "Mean WIS")
-
-
 
 scale_x_reordered <- function(..., sep = "___") {
   reg <- paste0(sep, ".+$")
