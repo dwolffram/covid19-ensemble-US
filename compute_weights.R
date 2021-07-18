@@ -78,11 +78,14 @@ for (forecast_date in forecast_dates[1:2]){
 
 
 no_cores <- detectCores() - 1  
+
 registerDoParallel(cores=no_cores)  
 
+registerDoParallel(cores=15)  
 
 
-df_all <- foreach(forecast_date=forecast_dates[1:2], .combine=rbind, .packages=c("tidyverse")) %dopar% {
+
+df_all <- foreach(forecast_date=forecast_dates, .combine=rbind, .packages=c("tidyverse")) %dopar% {
   print(forecast_date)
   
   df_train <- read_csv(paste0("data/df_train_", forecast_date, ".csv"), col_types = cols(
@@ -121,7 +124,8 @@ df_all <- foreach(forecast_date=forecast_dates[1:2], .combine=rbind, .packages=c
 
 
 
-
+write.csv(df_all, paste0("evaluation/", max(forecast_dates)
+, "_model_weights.csv"), row.names=FALSE)
 
 
 
