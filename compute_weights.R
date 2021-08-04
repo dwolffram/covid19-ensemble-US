@@ -7,7 +7,7 @@ source("https://raw.githubusercontent.com/dwolffram/covid19-ensembles/master/ens
 
 library(doParallel)
 
-add_truth <- function(df){
+add_truth <- function(df, as_of){
   target_dict = list("inc case" = "Incident Cases",
                      "inc death" = "Incident Deaths",
                      "cum death" = "Cumulative Deaths")
@@ -18,7 +18,7 @@ add_truth <- function(df){
   truth_df <- data.frame()
   
   for (target in targets){
-    truth <- load_truth(target_dict[[target]]) %>%
+    truth <- load_truth(target_dict[[target]], as_of) %>%
       rename(truth = value) %>%
       mutate(merge_target = target)
     
@@ -54,7 +54,7 @@ for (forecast_date in forecast_dates[1:2]){
               filter(location != 'US') %>%
               as.data.frame()
   
-  df_train <- add_truth(df_train)
+  df_train <- add_truth(df_train, as_of = forecast_date)
   
   
   for (t in unique(df_train$target)){
@@ -81,7 +81,7 @@ no_cores <- detectCores() - 1
 
 registerDoParallel(cores=no_cores)  
 
-registerDoParallel(cores=15)  
+registerDoParallel(cores=length(forecast_dates))  
 
 
 
@@ -100,7 +100,7 @@ df_all <- foreach(forecast_date=forecast_dates, .combine=rbind, .packages=c("tid
     filter(location != 'US') %>%
     as.data.frame()
   
-  df_train <- add_truth(df_train)
+  df_train <- add_truth(df_train, as_of = forecast_date)
   
   df <- data.frame()
   
@@ -123,18 +123,106 @@ df_all <- foreach(forecast_date=forecast_dates, .combine=rbind, .packages=c("tid
 }
 
 
-
-write.csv(df_all, paste0("evaluation/", max(forecast_dates)
-, "_model_weights.csv"), row.names=FALSE)
-
+max(forecast_dates)
+write.csv(df_all, paste0("evaluation/", max(forecast_dates), "_model_weights.csv"), row.names=FALSE)
 
 
 
+v3_fit <- function(df, models, method="BFGS", p0){
+  if(missing(models)){
+    models <- sort(unique(df$model))
+  }
+  print(models)
+  n_models = length(models)
+  print(n_models)
+  
+  # initial values vor optimization
+  if(missing(p0)){
+    p0 <- rep(1/n_models, n_models)
+  }
+  print(p0)
+  
+  p_optim <- optim(par = p0, 
+                   fn = function(x){
+                     return(v3_loss(df, params = x, intercept = 0, models))},
+                   method = method)$par
+  return(p_optim)
+}
 
 
 
 
 
+forecast_date <- "2021-07-26"
+train <- read_csv(paste0("data/df_train_", forecast_date, ".csv"), col_types = cols(
+  forecast_date = col_date(format = ""),
+  target = col_character(),
+  target_end_date = col_date(format = ""),
+  location = col_character(),
+  type = col_character(),
+  quantile = col_double(),
+  value = col_double()
+)) %>%
+  #filter(location != 'US') %>%
+  as.data.frame()
+
+m <- subset(train, is.na(train$value))
+retracted <- unique(m$target)
+train <- train %>%
+  filter(!(model == "USC-SI_kJalpha" & target %in% retracted))
+
+write.csv(train, paste0("data/df_train_", forecast_date, ".csv"), row.names=FALSE)
+
+
+df_train <- add_truth(train, as_of = forecast_date)
+
+d <- subset(df_train, model == "USC-SI_kJalpha" & target == "4 wk ahead inc case")
+
+df <- data.frame()
+
+for (t in unique(df_train$target)){
+  
+  print(t)
+  train <- df_train %>%
+    filter(target == t)
+  
+  p <- v3_iter_fit(train)
+  print(p)
+  
+  temp <- data.frame(p)
+  temp$target <- t
+  
+  df <- bind_rows(df, temp)
+}
+
+train <- subset(train, target == "4 wk ahead inc case")
+train <- add_truth(train, as_of="2021-07-26")
+p <- v3_iter_fit(train)
+
+e <- d %>%
+  group_by(model, target) %>%
+  summarize(n = n_distinct(location))
+
+b <- subset(d, model == "COVIDhub-baseline" & target == "4 wk ahead inc case")
+unique(u$location)
+
+
+u <- subset(d, model == "USC-SI_kJalpha" & target == "4 wk ahead inc case")
+d <- add_truth(d, as_of="2021-07-26")
+length(unique(u$location))
+s <- d %>%
+  group_by(location) %>%
+  summarize(n = n_distinct(quantile))
+
+d <- d %>%
+  filter(model == "USC-SI_kJalpha" & target == "4 wk ahead inc case")
+
+
+
+dat <- read.csv("https://raw.githubusercontent.com/reichlab/covid19-forecast-hub/master/data-processed/USC-SI_kJalpha/2021-06-27-USC-SI_kJalpha.csv")
+
+dat2 <- subset(dat, location == 12 & target == "4 wk ahead inc case")
+head(dat2)
 
 
 
