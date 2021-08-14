@@ -150,7 +150,7 @@ plot_submission <- function(df, target="inc death", start_date="2020-11-01", loc
     theme_grey(base_size=16)
 }
 
-forecast_date <- '2021-08-02'
+forecast_date <- '2021-08-09'
 compute_submission(forecast_date)
 
 
