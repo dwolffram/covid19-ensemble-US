@@ -88,6 +88,8 @@ coverage <- function(data, indices){
 }
 
 results <- boot(df_temp, statistic=coverage, R=1000)
+results2 <- boot(df_temp, statistic=coverage, strata=df_temp$location, R=1000)
+
 
 ci <- boot.ci(results, type="perc")
 ci$perc[c(4,5)]
@@ -104,8 +106,8 @@ df_temp %>%
   summarize(boot(., statistic=coverage, R=1000))
 
 
-boot_values <- function(data){
-  boot_out <- boot(data, statistic=coverage, R=1000)
+boot_values <- function(data, R=1000){
+  boot_out <- boot(data, strata=data$location, statistic=coverage, R=R)
   sample_coverage <- boot_out$t0
   ci_l <- boot.ci(boot_out, index=1, type="perc")$perc[c(4, 5)]
   ci_u <- boot.ci(boot_out, index=2, type="perc")$perc[c(4, 5)]
@@ -128,12 +130,8 @@ ggplot(r) +
   geom_segment(aes(x=0,xend=1,y=0,yend=1), size=0.2, linetype="solid", colour="grey70")+
   geom_errorbar(aes(x=quantile, ymin=l, ymax=u), width=0.0125, size=0.3,
                 data=r, colour="black") +
-  # geom_line(aes(x = quantile, y = l_l)) +
-  # geom_line(aes(x = quantile, y = l_u)) +
-  # geom_line(aes(x = quantile, y = u_l)) +
-  # geom_line(aes(x = quantile, y = u_u)) +
-  geom_smooth(aes(x = quantile, y = l, ymin = l_l, ymax = l_u), col = NA, stat = "identity", fill = "darkred", alpha = 0.2) +
-  geom_smooth(aes(x = quantile, y = u, ymin = u_l, ymax = u_u), col = NA, stat = "identity", fill = "darkred", alpha = 0.2) +
+  # geom_smooth(aes(x = quantile, y = l, ymin = l_l, ymax = l_u), col = NA, stat = "identity", fill = "darkred", alpha = 0.2) +
+  # geom_smooth(aes(x = quantile, y = u, ymin = u_l, ymax = u_u), col = NA, stat = "identity", fill = "darkred", alpha = 0.2) +
   scale_x_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1),
                      labels = function(x) ifelse(x == 0, "0", x)) +
   scale_y_continuous(labels = function(y) ifelse(y == 0, "0", y)) +
@@ -145,5 +143,75 @@ ggplot(r) +
         panel.grid.minor = element_line(size = 0.05)) +
   coord_fixed()
 
-ggsave("figures/coverage_new.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
+ggsave("figures/coverage.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
 
+
+### DIFFERENCE
+r_diff <- r
+r_diff[c("l", "u", "l_l", "l_u", "u_l", "u_u")] <- r_diff[c("l", "u", "l_l", "l_u", "u_l", "u_u")] - r_diff[, "quantile"]
+
+r_diff[, "quantile"]
+
+r_diff[c("l", "u", "l_l", "l_u", "u_l", "u_u")]
+
+r_diff <- r_diff %>% 
+  mutate_at(vars("l", "u", "l_l", "l_u", "u_l", "u_u"), list(~ . - quantile))
+
+ggplot(r_diff) +
+  facet_wrap("model", ncol=3) +
+  geom_hline(yintercept = 0, size = 0.3, linetype = "solid", color = "darkgray") +
+  geom_smooth(aes(x = quantile, y = l, ymin = l_l, ymax = u_u), col = NA, stat = "identity", fill = "darkred", alpha=0.2) +
+  #geom_smooth(aes(x = quantile, y = l, ymin = l_l, ymax = l_u), col = NA, stat = "identity", fill = "darkred", alpha=0.2) +
+  #geom_smooth(aes(x = quantile, y = u, ymin = u_l, ymax = u_u), col = NA, stat = "identity", fill = "darkred", alpha=0.2) +
+  geom_errorbar(aes(x=quantile, ymin=l, ymax=u), width=0.0125, size=0.3,
+                data=r_diff, colour="black") +
+  scale_x_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1),
+                     labels = function(x) ifelse(x == 0, "0", x)) +
+  scale_y_continuous(labels = function(y) ifelse(y == 0, "0", y)) +
+  xlab('Quantile') +
+  ylab(NULL) +
+  # labs(title="Coverage of death forecasts") +
+  theme_bw(base_size=11) +
+  theme(panel.grid.major = element_line(size = 0.05), 
+        panel.grid.minor = element_line(size = 0.05)) #+
+  # expand_limits(y = c(-max(abs(r_diff$l_l), abs(r_diff$u_u)), max(abs(r_diff$l_l), abs(r_diff$u_u))))
+
+ggsave("figures/coverage_diff_boot_outer.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
+
+#### 
+eval_date <- '2022-01-03'
+
+df <- read_csv(paste0("evaluation/", eval_date, "_df_processed.csv"), col_types = cols()) %>%
+  filter(location != "US")
+
+
+models=c("KITmetricslab-select_ensemble", "COVIDhub-ensemble", "COVIDhub-baseline")
+
+df_temp <- df %>%
+  filter(target == "1 wk ahead inc death",
+         model %in% models)
+
+r <- df_temp %>%
+  group_by(model, quantile) %>%
+  summarize(boot_values(cur_data(), 100))
+
+r_diff <- r %>% 
+  mutate_at(vars("l", "u", "l_l", "l_u", "u_l", "u_u"), list(~ . - quantile))
+
+ggplot(r_diff) +
+  facet_wrap("model", ncol=3) +
+  geom_segment(aes(x=0,xend=1,y=0,yend=0), size=0.2, linetype="solid", colour="grey70")+
+  geom_rect(aes(xmin=quantile-0.007, xmax=quantile+0.007, ymin=l, ymax=u), fill="deepskyblue4",alpha = 0.7) +
+  geom_errorbar(aes(x=quantile, ymin=u_l, ymax=u_u), width=0.01, size=0.3,colour="black") +
+  geom_errorbar(aes(x=quantile, ymin=l_l, ymax=l_u), width=0.01, size=0.3,colour="red") +
+  # geom_smooth(aes(x = quantile, y = l, ymin = l_l, ymax = l_u), col = NA, stat = "identity", fill = "darkred", alpha = 0.2) +
+  # geom_smooth(aes(x = quantile, y = u, ymin = u_l, ymax = u_u), col = NA, stat = "identity", fill = "darkblue", alpha = 0.2) +
+  scale_x_continuous(breaks = c(0, 0.25, 0.5, 0.75, 1),
+                     labels = function(x) ifelse(x == 0, "0", x)) +
+  # scale_y_continuous(labels = function(y) ifelse(y == 0, "0", y)) +
+  xlab('Quantile') +
+  ylab(NULL) +
+  # labs(title="Coverage of death forecasts") +
+  theme_bw(base_size=11) +
+  theme(panel.grid.major = element_line(size = 0.05), 
+        panel.grid.minor = element_line(size = 0.05))
