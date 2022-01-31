@@ -1,7 +1,7 @@
 library(tidyverse)
 
 df <- read.csv("evaluation/2021-07-10_df_processed.csv") %>%
-  filter(location != "US")
+  filter(location == "US")
 
 eval_date <- '2022-01-03'
 
@@ -99,9 +99,9 @@ scores <- results %>%
   group_by(quantile, model) %>%
   distinct(across(score:pval_ucond))
 
-write.csv(scores, 'evaluation/2022-01-03_score_decomp.csv', row.names=FALSE)
+write.csv(scores, 'evaluation/2022-01-03_score_decomp2.csv', row.names=FALSE)
 
-scores <- read.csv("evaluation/2022-01-03_score_decomp.csv")
+scores <- read.csv("evaluation/2022-01-03_score_decomp2.csv")
 
 scores <- scores %>%
   filter(!model %in% c("COVIDhub-4_week_ensemble", "COVIDhub-ensemble_CDC"))
@@ -144,36 +144,39 @@ ggplot(data=scores) +
   #guides(color = guide_colourbar(barwidth = 20, barheight = 0.5)) +
   theme(legend.position = "bottom")
 
-install.packages('Rcpp')
 library(Rcpp)
-
 library(ggrepel)
 
 scores_med <- subset(scores, quantile == 0.5)
 
 df.abline <- data.frame(slope=1,
-                        intercept=seq(-max(scores$mcb),
-                                      max(scores$dsc),
-                                      length.out=10))
+                        intercept=seq(-ceiling(max(scores$mcb)),
+                                      ceiling(max(scores$dsc)),
+                                      length.out=10),
+                        label = 3)
+
+scores <- scores %>%
+  filter(!model %in% c("COVIDhub-4_week_ensemble", "COVIDhub-ensemble_CDC"))
 
 iso <- scores %>%
   group_by(quantile) %>%
-  summarize(intercept = seq(-max(mcb), max(dsc), length.out=10), slope = 1)
+  summarize(intercept = seq(-ceiling(max(mcb)), ceiling(max(dsc)), length.out=10), slope = 1)
 
 iso <- scores %>%
   group_by(quantile) %>%
-  summarize(intercept = seq(max(dsc), -max(mcb), by = -(max(dsc) - min(dsc))/4), slope = 1)
+  summarize(intercept = seq(max(dsc), -max(mcb), by = -(max(dsc) - min(dsc))/4), slope = 1, unc = unique(unc))
 
 s <- subset(scores, quantile %in% c(0.05, 0.5, 0.95))
 i <- subset(iso, quantile %in% c(0.05, 0.5, 0.95))
 
 ggplot(data=s) +
   facet_wrap('quantile', scales = "free", ncol = 3) +
+  geom_point(aes(x=mcb, y=dsc, color=model), size = 0.4) +
+  geom_text_repel(aes(x=mcb, y=dsc, label=model), max.overlaps=NA, size = 6*0.36, nudge_x = 0.1,
+                  direction = "both", segment.color = "transparent", box.padding = 0.1, force = 1, point.padding = 0) +
   geom_abline(data=i, aes(intercept=intercept, slope=slope), linetype = "solid", alpha = 0.3,
               size = 0.2) +
-  geom_point(aes(x=mcb, y=dsc, color=model), size = 0.4) +
-  geom_text_repel(aes(x=mcb, y=dsc, label=model), max.overlaps=NA, max.time=15, size = 6*0.36,
-                  direction = "both", segment.color = "transparent") +
+  #geom_label_repel(data=i, aes(label = QS)) +
   theme(legend.position = "None", aspect.ratio = 1) +
   xlab("MCB") +
   ylab("DSC") +
@@ -182,6 +185,161 @@ ggplot(data=s) +
   theme(panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
         aspect.ratio = 1,
-        legend.position = "none")
+        legend.position = "none",
+        # axis.text.x=element_blank(),
+        # axis.ticks.x=element_blank(),
+        # axis.text.y=element_blank(),
+        # axis.ticks.y=element_blank()
+        )
 
-ggsave("figures/decomposition.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
+
+library(geomtextpath)
+
+ggplot(data=s) +
+  facet_wrap('quantile', scales = "free", ncol = 3) +
+  # geom_abline(data=i, aes(intercept=intercept, slope=slope), linetype = "solid", alpha = 0.3,
+  #             size = 0.2) +
+  geom_textabline(data = i, aes(intercept=intercept, slope=slope, label=round(unc - intercept, 1)), 
+                  hjust=0.875, size=4*0.36, linewidth=0.2, linecolour="gray") +
+  # geom_label_repel(aes(x=mcb, y=dsc, label=model), max.overlaps=NA, size = 6*0.36, nudge_x = 0.1,
+  #                 direction = "both", segment.color = "transparent",
+  #                 label.size=NA) +
+  geom_point(aes(x=mcb, y=dsc, color=model), size = 0.4) +
+  geom_text_repel(aes(x=mcb, y=dsc, label=model), max.overlaps=NA, size = 6*0.36, nudge_x = 0.1,
+                  direction = "both", segment.color = "transparent", box.padding = 0.1, force = 1, point.padding = 0) +
+  xlab("MCB") +
+  ylab("DSC") +
+  #labs(title = "1 wk ahead inc case") +
+  theme_bw(base_size = 10) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        aspect.ratio = 1,
+        legend.position = "none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()
+  )
+
+ggsave("figures/decomposition3.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
+
+
+
+### LABEL MIT WEISSEM HINTERGRUND
+ggplot(data=s) +
+  facet_wrap('quantile', scales = "free", ncol = 3) +
+  # geom_abline(data=i, aes(intercept=intercept, slope=slope), linetype = "solid", alpha = 0.3,
+  #             size = 0.2) +
+  # geom_labelabline(data = i, aes(intercept=intercept, slope=slope, label=round(unc - intercept, 1)), 
+  #                  hjust=0.85, size=4*0.36, text_only=TRUE, boxcolour=NA, halign="right") +
+  geom_textabline(data = i, aes(intercept=intercept, slope=slope, label=round(unc - intercept, 1)), 
+                  hjust=0.85, size=4*0.36, linewidth=0.2, linecolour="gray") +
+  geom_label_repel(aes(x=mcb, y=dsc, label=model), max.overlaps=NA, size = 6*0.36, nudge_x = 0.1,
+                  direction = "both", segment.color = "transparent",
+                  box.padding = 0, label.padding = 0.15,
+                  label.size=NA) +
+  geom_point(aes(x=mcb, y=dsc, color=model), size = 0.4) +
+  xlab("MCB") +
+  ylab("DSC") +
+  #labs(title = "1 wk ahead inc case") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        aspect.ratio = 1,
+        legend.position = "none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()
+  )
+
+
+ggsave("figures/decomposition4.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
+
+### MIT LEGENDE
+
+ggplot(data=s) +
+  facet_wrap('quantile', scales = "free", ncol = 3) +
+  geom_abline(data=i, aes(intercept=intercept, slope=slope), linetype = "solid", alpha = 0.3,
+              size = 0.2) +
+  geom_labelabline(data = i, aes(intercept=intercept, slope=slope, label=round(unc - intercept, 1)), 
+                   hjust=0.8, size=4*0.36, text_only=TRUE, fill="white", boxcolour=NA,
+                   label.r = unit(0.05, "lines"),
+                   label.padding = unit(0.1, "lines"),) +
+  geom_point(aes(x=mcb, y=dsc, color=model), size = 0.4) +
+  # geom_label_repel(aes(x=mcb, y=dsc, label=model), max.overlaps=NA, size = 6*0.36, nudge_x = 0.1,
+  #                 direction = "both", segment.color = "transparent",
+  #                 label.size=NA) +
+  # geom_text_repel(aes(x=mcb, y=dsc, label=model), max.overlaps=NA, size = 6*0.36, nudge_x = 0.1,
+  #                 direction = "both", segment.color = "transparent", box.padding = 0.1, force = 1, point.padding = 0) +
+  #theme(legend.position = "None", aspect.ratio = 1) +
+  xlab("MCB") +
+  ylab("DSC") +
+  #labs(title = "1 wk ahead inc case") +
+  theme_bw(base_size = 10) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        aspect.ratio = 1,
+        #legend.position = "none",
+        legend.position = "bottom",
+        legend.text = element_text(size=7),
+        legend.title = element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()
+  )
+
+ggsave("figures/decomposition_legend.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
+
+
+### REMOVE LABELS MANUALLY
+
+scores <- read.csv("evaluation/2022-01-03_score_decomp2.csv")
+
+scores <- scores %>%
+  filter(!model %in% c("COVIDhub-4_week_ensemble", "COVIDhub_CDC-ensemble"))
+
+scores$quantile <- as.factor(scores$quantile)
+scores$model <- str_replace(scores$model, "COVIDhub-baseline", "Baseline")
+scores$model <- as.character(lapply(strsplit(as.character(scores$model), "-"), '[[', 1))
+scores$model <- str_replace(scores$model, "COVIDhub", "COVIDhub-ensemble")
+
+iso <- scores %>%
+  group_by(quantile) %>%
+  summarize(intercept = seq(max(dsc), -max(mcb), by = -(max(dsc) - min(dsc))/4), slope = 1, unc = unique(unc)) %>%
+  mutate(score = round(unc - intercept, 1), label = score)
+
+s <- subset(scores, quantile %in% c(0.05, 0.5, 0.95))
+i <- subset(iso, quantile %in% c(0.05, 0.5, 0.95))
+
+i$label[c(2, 3, 10, 17, 34, 40)] <- NA
+
+ggplot(data=s) +
+  facet_wrap('quantile', scales = "free", ncol = 3) +
+  geom_abline(data=i, aes(intercept=intercept, slope=slope), linetype = "solid", alpha = 0.3,
+              size = 0.2) +
+  geom_labelabline(data = i, aes(intercept=intercept, slope=slope, label=label),
+                   hjust=0.9, size=4*0.36, text_only=TRUE, boxcolour=NA, straight=TRUE) +
+  # geom_textabline(data = i, aes(intercept=intercept, slope=slope, label=label), 
+  #                 hjust=0.875, size=4*0.36, linewidth=0.2, linecolour="gray") +
+
+  geom_point(aes(x=mcb, y=dsc, color=model), size = 0.4) +
+  geom_text_repel(aes(x=mcb, y=dsc, label=model), max.overlaps=NA, size = 6*0.36, nudge_x = 0.1,
+                  direction = "both", segment.color = "transparent", box.padding = 0.1, force = 1, point.padding = 0) +
+  xlab("MCB") +
+  ylab("DSC") +
+  #labs(title = "1 wk ahead inc case") +
+  theme_bw(base_size = 11) +
+  theme(panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        aspect.ratio = 1,
+        legend.position = "none",
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()
+  )
+
+ggsave("figures/decomposition5.pdf", width=200, height=70, unit="mm", device = "pdf", dpi=300)
+
