@@ -307,20 +307,25 @@ scores$model <- str_replace(scores$model, "COVIDhub", "COVIDhub-ensemble")
 
 iso <- scores %>%
   group_by(quantile) %>%
-  summarize(intercept = seq(max(dsc), -max(mcb), by = -(max(dsc) - min(dsc))/4), slope = 1, unc = unique(unc)) %>%
+  mutate(test = unc%%1)
+
+iso <- scores %>%
+  group_by(quantile) %>%
+  summarize(intercept = seq(ceiling(max(dsc)) + first(unc)%%1, -(ceiling(max(mcb))+ first(unc)%%1), by = -round((max(dsc) - min(dsc))/4)), slope = 1, unc = unique(unc)) %>%
   mutate(score = round(unc - intercept, 1), label = score)
 
 s <- subset(scores, quantile %in% c(0.05, 0.5, 0.95))
 i <- subset(iso, quantile %in% c(0.05, 0.5, 0.95))
 
-i$label[c(2, 3, 10, 17, 34, 40)] <- NA
+i$label[c(3, 4, 5, 14, 15, 19, 21, 24, 42, 48)] <- NA
+# i$label[c(2, 3, 10, 17, 34, 40)] <- NA
 
 ggplot(data=s) +
   facet_wrap('quantile', scales = "free", ncol = 3) +
-  geom_abline(data=i, aes(intercept=intercept, slope=slope), linetype = "solid", alpha = 0.3,
+  geom_abline(data=i, aes(intercept=intercept, slope=slope), color="lightgray", alpha=0.5,
               size = 0.2) +
-  geom_labelabline(data = i, aes(intercept=intercept, slope=slope, label=label),
-                   hjust=0.9, size=4*0.36, text_only=TRUE, boxcolour=NA, straight=TRUE) +
+  geom_labelabline(data = i, aes(intercept=intercept, slope=slope, label=label), color="gray42",
+                   hjust=0.85, size=4*0.36, text_only=TRUE, boxcolour=NA, straight=TRUE) +
   # geom_textabline(data = i, aes(intercept=intercept, slope=slope, label=label), 
   #                 hjust=0.875, size=4*0.36, linewidth=0.2, linecolour="gray") +
 
@@ -341,5 +346,5 @@ ggplot(data=s) +
         axis.ticks.y=element_blank()
   )
 
-ggsave("figures/decomposition5.pdf", width=200, height=70, unit="mm", device = "pdf", dpi=300)
+ggsave("figures/decomposition5.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
 
