@@ -1,4 +1,7 @@
 library(tidyverse)
+library(geomtextpath)
+library(ggrepel)
+
 
 df <- read.csv("evaluation/2021-07-10_df_processed.csv") %>%
   filter(location == "US")
@@ -305,26 +308,44 @@ scores$model <- str_replace(scores$model, "COVIDhub-baseline", "Baseline")
 scores$model <- as.character(lapply(strsplit(as.character(scores$model), "-"), '[[', 1))
 scores$model <- str_replace(scores$model, "COVIDhub", "COVIDhub-ensemble")
 
-iso <- scores %>%
-  group_by(quantile) %>%
-  mutate(test = unc%%1)
+
+# iso <- scores %>%
+#   group_by(quantile) %>%
+#   summarize(m=(max(dsc)-min(dsc))/(max(mcb)-min(mcb)), d = sqrt(max(dsc)^2 + max(mcb)^2),
+#             step_size = 1/10 * d/m,
+#             intercept = seq(ceiling(max(dsc)) + first(unc)%%1 - ceiling(min(mcb)), # add decimal part of unc to ensure integer valued scores on isolines
+#                             -(ceiling(max(mcb))+ first(unc)%%1 - ceiling(min(mcb))), 
+#                             # by = -step_size), 
+#                             by = -1/m * 1/4 * (max(dsc) - min(dsc))), 
+#             slope = 1, 
+#             unc = unique(unc)) %>%
+#   mutate(score = round(unc - intercept, 1), label = score)
+
+
 
 iso <- scores %>%
   group_by(quantile) %>%
-  summarize(intercept = seq(ceiling(max(dsc)) + first(unc)%%1, -(ceiling(max(mcb))+ first(unc)%%1), by = -round((max(dsc) - min(dsc))/4)), slope = 1, unc = unique(unc)) %>%
+  summarize(intercept = seq(ceiling(max(dsc)) + first(unc)%%1 - ceiling(min(mcb)), # add decimal part of unc to ensure integer valued scores on isolines
+                            -(ceiling(max(mcb))+ first(unc)%%1 - ceiling(min(mcb))), 
+                            by = -round((max(dsc) - min(dsc))/8)), 
+                            # by = -round((max(mcb)-min(mcb))/(max(dsc)-min(dsc))*(max(dsc) - min(dsc))/4)), 
+                            # by = -((max(mcb)-min(mcb))/(max(dsc)-min(dsc)))), 
+            slope = 1, 
+            unc = unique(unc)) %>%
   mutate(score = round(unc - intercept, 1), label = score)
 
 s <- subset(scores, quantile %in% c(0.05, 0.5, 0.95))
 i <- subset(iso, quantile %in% c(0.05, 0.5, 0.95))
 
-i$label[c(3, 4, 5, 14, 15, 19, 21, 24, 42, 48)] <- NA
+# i$label[c(3, 4, 5, 14, 15, 19, 21, 24, 42, 48)] <- NA
 # i$label[c(2, 3, 10, 17, 34, 40)] <- NA
+i$label[c(1, 2, 3, 12, 13, 14, 15, 18, 19, 24, 57, 58, 59, 62, 63, 70)] <- NA
 
 ggplot(data=s) +
   facet_wrap('quantile', scales = "free", ncol = 3) +
   geom_abline(data=i, aes(intercept=intercept, slope=slope), color="lightgray", alpha=0.5,
               size = 0.2) +
-  geom_labelabline(data = i, aes(intercept=intercept, slope=slope, label=label), color="gray42",
+  geom_labelabline(data = i, aes(intercept=intercept, slope=slope, label=label), color="gray50",
                    hjust=0.85, size=4*0.36, text_only=TRUE, boxcolour=NA, straight=TRUE) +
   # geom_textabline(data = i, aes(intercept=intercept, slope=slope, label=label), 
   #                 hjust=0.875, size=4*0.36, linewidth=0.2, linecolour="gray") +
@@ -346,5 +367,5 @@ ggplot(data=s) +
         axis.ticks.y=element_blank()
   )
 
-ggsave("figures/decomposition5.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
+ggsave("figures/decomposition7.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
 
