@@ -217,6 +217,11 @@ reliability_diagram(df, models = c("COVIDhub-baseline", "COVIDhub-ensemble",
 
 #### INSET
 
+eval_date <- '2022-01-03'
+
+df <- read.csv(paste0("evaluation/", eval_date, "_df_processed.csv")) %>%
+  filter(location != "US")
+
 models = c("COVIDhub-baseline", "COVIDhub-ensemble", "KITmetricslab-select_ensemble")
 target = "1 wk ahead inc death"
 quantile = 0.5
@@ -237,9 +242,9 @@ scores <- results %>%
   group_by(model) %>%
   distinct(across(score:pval_ucond)) %>%
   mutate(label = paste0(c("QS ", "uMCB ","cMCB ","DSC ","UNC "),
-                        round(c(score, umcb, cmcb, dsc, unc), digits = 3),
-                        c("", paste0(" [p = ", round(pval_ucond, digits = 3),"]"), "", "", ""),
-                        c("", "", paste0(" [p = ", round(pval_cond, digits = 3),"]"), "", ""),
+                        round(c(score, umcb, cmcb, dsc, unc), digits = 1),
+                        c("", paste0(" [p = ", round(pval_ucond, digits = 2),"]"), "", "", ""),
+                        c("", "", paste0(" [p = ", round(pval_cond, digits = 2),"]"), "", ""),
                         collapse = "\n"))
 
 # needed to ensure square facets with equal x and y limits
@@ -313,7 +318,7 @@ p <- ggplot(results, aes(x, x_rc, group=model)) +
         panel.grid.minor = element_line(size = 0.05)) +
   coord_fixed()
 
-get_inset <- function(df, ...){
+get_inset <- function(df, xmin=0, xmax=0, ...){
   ggplot(df, aes(x)) +
     geom_histogram(fill="gray", col="black", size=0.2, bins = 8) +
     theme_classic( base_size=5.5) +
@@ -327,8 +332,9 @@ get_inset <- function(df, ...){
           panel.border=element_blank(),
           panel.grid.major=element_blank(),
           panel.grid.minor=element_blank(),
-          plot.background=element_blank()) +
-    scale_x_continuous(guide = guide_axis(check.overlap = TRUE))
+          plot.background=element_blank())+
+    expand_limits(x = c(xmin, xmax)) +
+    scale_x_continuous(guide = guide_axis(check.overlap = TRUE)) 
 }
 
 # get_inset(subset(results, model == "COVIDhub-ensemble"))
@@ -351,20 +357,21 @@ p + annotation_custom2(grob=ggplotGrob(inset_plot),
 
 
 
-get_annotation <- function(df, model){
-  inset_plot <- get_inset(df)
+get_annotation <- function(df, model, xmax){
+  inset_plot <- get_inset(df, xmax=xmax)
   annotation_custom2(grob=ggplotGrob(inset_plot), 
                      data = subset(df, model == unique(df$model)),
-                     ymin = 0, ymax=750, xmin=1500, xmax=2750)
-                     #ymin = -3000, ymax=2500, xmin=10000, xmax=15000)
+                     ymin = min(facet_lims$mn), ymax=max(facet_lims$mx)/4, xmin=max(facet_lims$mx)/1.5, xmax=max(facet_lims$mx))
+                     #ymin = 0, ymax=750, xmin=1500, xmax=2750)
+                     #ymin = -2000, ymax=4000, xmin=10000, xmax=15000)
 }
 
 insets <- results %>%
   group_by(model) %>%
-  group_map(get_annotation, .keep=TRUE)
+  group_map(get_annotation, xmax=max(facet_lims$mx), .keep=TRUE)
 
          
 p + insets    
 
-ggsave("figures/rel_diag_inset_states.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
+ggsave("figures/rel_diag_inset_states2.pdf", width=180, height=70, unit="mm", device = "pdf", dpi=300)
 

@@ -215,3 +215,62 @@ ggplot(r_diff) +
   theme_bw(base_size=11) +
   theme(panel.grid.major = element_line(size = 0.05), 
         panel.grid.minor = element_line(size = 0.05))
+
+
+### NEW BOOTSTRAP
+
+eval_date <- '2022-01-03'
+
+df <- read_csv(paste0("evaluation/", eval_date, "_df_processed.csv"), col_types = cols()) %>%
+  filter(location != "US")
+
+
+models=c("KITmetricslab-select_ensemble", "COVIDhub-ensemble", "COVIDhub-baseline")
+
+df_temp <- df %>%
+  filter(target == "1 wk ahead inc death",
+         model %in% models) %>%
+  as.
+
+rownames(df_temp) <- df_temp$target_end_date
+
+
+coverage <- function(data, indices){
+  if(!missing(indices)){
+    data <- data[indices, ]
+  }
+  l <- mean(data$truth < floor(data$value))
+  u <- mean(data$truth <= floor(data$value))
+  c(l, u)
+}
+
+boot_values <- function(data, R=1000){
+  # stratify by location if more than one is present
+  if(length(unique(df$location)) > 1){
+    boot_out <- boot(data, strata=data$location, statistic=coverage, R=R)
+  }
+  else{
+    boot_out <- boot(data, statistic=coverage, R=R)
+  }
+  
+  sample_coverage <- boot_out$t0
+  ci_50_l <- boot.ci(boot_out, index=1, type="perc", conf=c(0.5, 0.95))$perc[1, 4]
+  ci_50_u <- boot.ci(boot_out, index=2, type="perc", conf=c(0.5, 0.95))$perc[1, 5]
+  ci_95_l <- boot.ci(boot_out, index=1, type="perc", conf=c(0.5, 0.95))$perc[2, 4]
+  ci_95_u <- boot.ci(boot_out, index=2, type="perc", conf=c(0.5, 0.95))$perc[2, 5]
+  
+  tibble("l" := sample_coverage[1],
+         "u" := sample_coverage[2],
+         "ci_50_l" := ci_50_l,
+         "ci_50_u" := ci_50_u,
+         "ci_95_l" := ci_95_l,
+         "ci_95_u" := ci_95_u)
+}
+
+r <- df_temp %>%
+  group_by(model, quantile) %>%
+  summarize(boot_values(cur_data()))
+
+dates <- unique(df_temp$target_end_date)
+sample(dates)
+?sample
